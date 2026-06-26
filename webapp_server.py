@@ -126,6 +126,7 @@ def validate_init_data(raw):
         got    = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
         log.info(f"got: {got}")
         log.info(f"expected: {h}")
+        log.info(f"TOKEN={BOT_TOKEN[:10]}... secret={secret.hex()[:16]}... got={got[:16]}... h={h[:16] if h else None}")
         if not hmac.compare_digest(got, h): return None
         return json.loads(pairs.get("user", "{}"))
     except Exception as e:
