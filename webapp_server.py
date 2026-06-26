@@ -118,7 +118,7 @@ def validate_init_data(raw):
         h      = pairs.pop("hash", None)
         if not h: return None
         check  = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
-        secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+        secret = hmac.new(BOT_TOKEN.encode(), b"WebAppData", hashlib.sha256).digest()
         got    = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(got, h): return None
         return json.loads(pairs.get("user", "{}"))
