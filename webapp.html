@@ -402,11 +402,8 @@ body{background:var(--bg);color:var(--text);font-family:Georgia,serif}
 
 <script>
 /* ── Telegram shim for browser testing ── */
-const TG = window.Telegram?.WebApp ?? {
-  initData:'', ready:()=>{}, expand:()=>{},
-  viewportStableHeight: window.innerHeight,
-  HapticFeedback:{impactOccurred:()=>{}, notificationOccurred:()=>{}}
-};
+  
+const TG = window.Telegram.WebApp;
 
 /* ── Translations ── */
 const TX = {
