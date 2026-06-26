@@ -111,15 +111,21 @@ async def db_stats(uid, result):
         await pool.execute("UPDATE users SET g_bj=g_bj+1 WHERE uid=$1", uid)
 
 # ── initData VALIDATION ───────────────────────────────────────────────────────
+
 def validate_init_data(raw):
     """Validate Telegram WebApp initData HMAC. Returns user dict or None."""
     try:
         pairs  = dict(parse_qsl(raw, keep_blank_values=True))
         h      = pairs.pop("hash", None)
+        log.info(f"initData raw: {raw[:100]}")
+        log.info(f"hash from client: {h}")
         if not h: return None
         check  = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+        log.info(f"check string: {check[:200]}")
         secret = hmac.new(BOT_TOKEN.encode(), b"WebAppData", hashlib.sha256).digest()
         got    = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+        log.info(f"got: {got}")
+        log.info(f"expected: {h}")
         if not hmac.compare_digest(got, h): return None
         return json.loads(pairs.get("user", "{}"))
     except Exception as e:
