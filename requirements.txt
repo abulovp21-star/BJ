@@ -1,2 +1,3 @@
 aiohttp
 asyncpg
+aiogram
