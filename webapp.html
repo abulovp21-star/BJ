@@ -745,7 +745,10 @@ function onMsg(msg){
 function connect(){
   const proto=location.protocol==='https:'?'wss':'ws';
   ws=new WebSocket(`${proto}://${location.host}/ws`);
-  ws.onopen=()=>{ws.send(JSON.stringify({action:'auth',init_data:TG.initData}));};
+  ws.onopen=()=>{
+  const id=TG.initDataUnsafe?.user?.id||0;
+  ws.send(JSON.stringify({action:'auth',init_data:TG.initData,tg_id:id}));
+};
   ws.onmessage=e=>{try{onMsg(JSON.parse(e.data))}catch(err){console.error('onMsg error',err)}};
   ws.onclose=()=>setTimeout(connect,3000);
   ws.onerror=()=>{};
