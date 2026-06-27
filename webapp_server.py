@@ -121,15 +121,11 @@ def validate_init_data(raw):
         log.info(f"hash from client: {h}")
         if not h: return None
         check  = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
-        log.info(f"check string: {check[:200]}")
         secret = hmac.new(BOT_TOKEN.encode(), b"WebAppData", hashlib.sha256).digest()
         got    = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
-        log.info(f"got: {got}")
-        log.info(f"expected: {h}")
-        log.info(f"TOKEN={BOT_TOKEN[:10]}... secret={secret.hex()[:16]}... got={got[:16]}... h={h[:16] if h else None}")
+        log.info(f"got={got[:16]}... h={h[:16]}")
         if not hmac.compare_digest(got, h):
-    log.warning(f"HMAC mismatch but continuing for debug")
-    # return None  # temporarily disabled
+            return None
         return json.loads(pairs.get("user", "{}"))
     except Exception as e:
         log.warning(f"initData error: {e}")
