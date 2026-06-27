@@ -329,7 +329,8 @@ async def ws_handler(req):
             if act == "auth":
                 ud = validate_init_data(d.get("init_data", ""))
                 if not ud:
-                    ud = {"id": 6714200331}
+                    await ws.send_json({"type": "error", "msg": "auth_failed"})
+                    continue
                 uid = ud["id"]
                 ws_map[uid] = ws
                 u = await db_user(uid)
