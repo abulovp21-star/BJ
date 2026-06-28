@@ -162,7 +162,7 @@ TX['en'] = {
     'tr_low': '❌ Minimum transfer: <b>100¢</b>',
     'tr_nob': '❌ Not enough chips. Balance: <b>{b:,}¢</b>',
     'tr_nf': '❌ Player not found — they need to start the bot first.',
-    'tr_usage': 'ℹ️ /transfer @user &lt;amount&gt;\nor reply to a message + /transfer &lt;amount&gt;\n\nFee: 10%  (👑 VIP: 0%)',
+    'tr_usage': 'ℹ️ /transfer @user &lt;amount&gt; [comment]\nor reply to a message + /transfer &lt;amount&gt; [comment]\n\nFee: 10%  (👑 VIP: 0%)',
     'pm_only': '⚠️ This only works in PM.',
     'banned': '🚫 Banned until <b>{until}</b>.',
     'btn_hit': '🃏 Hit',
@@ -296,7 +296,7 @@ TX['ru'] = {
     'tr_low': '❌ Минимальный перевод: <b>100¢</b>',
     'tr_nob': '❌ Недостаточно фишек. Баланс: <b>{b:,}¢</b>',
     'tr_nf': '❌ Игрок не найден — он должен сначала запустить бота.',
-    'tr_usage': 'ℹ️ /transfer @юзер &lt;сумма&gt;\nили ответь на сообщение + /transfer &lt;сумма&gt;\n\nКомиссия: 10%  (👑 VIP: 0%)',
+    'tr_usage': 'ℹ️ /transfer @юзер &lt;сумма&gt; [комментарий]\nили ответь на сообщение + /transfer &lt;сумма&gt; [комментарий]\n\nКомиссия: 10%  (👑 VIP: 0%)',
     'pm_only': '⚠️ Это работает только в личных сообщениях.',
     'banned': '🚫 Бан до <b>{until}</b>.',
     'btn_hit': '🃏 Взять',
@@ -696,8 +696,12 @@ def new_tab(acid, n):
                 lobby_mid={}, board_mid={}, action_mid={})
 def get_or_new(acid):
     for tb in gtabs(acid):
-        if tb["state"]=="lobby": return tb
+        if tb["state"] == "lobby": return tb
+    # Если нет лобби — проверяем нет ли активной игры
     tabs = gtabs(acid)
+    if tabs:
+        # Один стол на группу — если есть активная игра, возвращаем её лобби или None
+        pass
     n = max((x["n"] for x in tabs), default=0) + 1
     tb = new_tab(acid, n); tabs.append(tb); stabs(acid, tabs); return tb
 def del_tab(acid, n):
@@ -778,7 +782,7 @@ async def profile_txt(uid):
              vip_line=vline, bw=u["w_bj"], bl=u["l_bj"], bg=u["g_bj"], pct=win_pct(u))
 
 async def top_txt(lang, mode="balance", cid=None):
-    """If cid given (a group), restrict to players tracked for that group."""
+    """In groups show group top, in PM always show global top."""
     grp_filter = cid is not None and not is_pm(cid)
     if mode == "balance":
         mlbl = t(lang,"top_bal_lbl")
@@ -830,10 +834,9 @@ async def top_txt(lang, mode="balance", cid=None):
 
 # ── KEYBOARDS ───────────────────────────────────────────────────────────────
 async def reply_kb(uid):
-    """PM reply keyboard — NO play button (play is group-only)."""
+    """PM reply keyboard."""
     lang = await get_lang(uid)
     kb = [
-        [KB(text="🎮 Blackjack Online", web_app=WebAppInfo(url=WEBAPP_URL))] if WEBAPP_URL else [],
         [KB(text=t(lang,"btn_profile")), KB(text=t(lang,"btn_bonus"))],
         [KB(text=t(lang,"btn_shop")),    KB(text=t(lang,"btn_top"))],
         [KB(text=t(lang,"btn_ref")),     KB(text=t(lang,"btn_upgrade"))],
@@ -883,6 +886,7 @@ def settings_kb(lang):
          IKB(text=t(lang,"btn_help"),  callback_data="set|help")],
         [IKB(text=t(lang,"btn_tos"),    callback_data="set|tos"),
          IKB(text=t(lang,"btn_groups"), callback_data="set|groups")],
+        [IKB(text=t(lang,"btn_vip"),    callback_data="set|vip")],
         [IKB(text=t(lang,"btn_report"), callback_data="set|report")],
     ])
 
@@ -942,7 +946,7 @@ async def apply_promo(uid, code, dest_cid):
         await send(dest_cid, t(lang,"promo_v", d=d))
 
 # ── TRANSFER ────────────────────────────────────────────────────────────────
-async def do_transfer(sender_uid, target, amount, dest_cid, lang):
+async def do_transfer(sender_uid, target, amount, dest_cid, lang, comment=""):
     if amount < 100: await send(dest_cid, t(lang,"tr_low")); return
     su = await gu(sender_uid)
     if not su: return
@@ -956,30 +960,40 @@ async def do_transfer(sender_uid, target, amount, dest_cid, lang):
     await add_bal(sender_uid, -total); await add_bal(tu["uid"], amount)
     su2 = await gu(sender_uid)
     tm = await mention(tu["uid"], tu["name"])
+    comment_line = f"\n💬 <i>{html.escape(comment)}</i>" if comment else ""
     if vip:
-        await send(dest_cid, t(lang,"tr_ok_vip", a=amount, to=tm, b=su2["bal"]))
+        await send(dest_cid, t(lang,"tr_ok_vip", a=amount, to=tm, b=su2["bal"]) + comment_line)
     else:
-        await send(dest_cid, t(lang,"tr_ok", a=amount, to=tm, fee=fee, b=su2["bal"]))
+        await send(dest_cid, t(lang,"tr_ok", a=amount, to=tm, fee=fee, b=su2["bal"]) + comment_line)
     rlang = await get_lang(tu["uid"])
     sm = await mention(sender_uid, su["name"])
     tu2 = await gu(tu["uid"])
-    await send(tu["uid"], t(rlang,"tr_recv", fr=sm, a=amount, b=tu2["bal"]))
+    recv_comment = f"\n💬 <i>{html.escape(comment)}</i>" if comment else ""
+    await send(tu["uid"], t(rlang,"tr_recv", fr=sm, a=amount, b=tu2["bal"]) + recv_comment)
 
 async def _parse_transfer(uid, cid, lang, parts, reply_msg):
-    target = None; amount = None
+    target = None; amount = None; comment = ""
     if reply_msg and reply_msg.from_user:
         target = reply_msg.from_user.id
-        for p in reversed(parts):
+        for i, p in enumerate(reversed(parts)):
             try:
-                amount = int(p.replace(",","").replace("k","000").replace("K","000")); break
+                amount = int(p.replace(",","").replace("k","000").replace("K","000"))
+                # всё после суммы — комментарий
+                idx = len(parts) - 1 - i
+                if idx + 1 < len(parts):
+                    comment = " ".join(parts[idx+1:])
+                break
             except Exception: pass
     elif len(parts) >= 3 and parts[1].startswith("@"):
         target = parts[1]
-        try: amount = int(parts[2].replace(",","").replace("k","000").replace("K","000"))
+        try:
+            amount = int(parts[2].replace(",","").replace("k","000").replace("K","000"))
+            if len(parts) > 3:
+                comment = " ".join(parts[3:])
         except Exception: pass
     if target is None or amount is None:
         await send(cid, t(lang,"tr_usage")); return
-    await do_transfer(uid, target, amount, cid, lang)
+    await do_transfer(uid, target, amount, cid, lang, comment)
 
 # ── GAME LOGIC ──────────────────────────────────────────────────────────────
 
@@ -994,6 +1008,10 @@ async def bj_join(uid, fname, msg_cid, bet):
     u = await gu(uid)
     if u["bal"] < bet: await temp(msg_cid, t(lang,"no_bal", b=u["bal"])); return
     if find_player_tab(acid, uid): await temp(msg_cid, t(lang,"in_game")); return
+    # Один стол на группу — если идёт игра, нельзя начать новую
+    existing = gtabs(acid)
+    if existing and all(tb["state"] != "lobby" for tb in existing):
+        await temp(msg_cid, t(lang,"no_game"), 4); return
     tb = get_or_new(acid)
     await add_bal(uid, -bet)
     await track_group_player(acid, uid)
@@ -1963,6 +1981,54 @@ async def cmd_settos(msg: Message):
         _user_state[msg.from_user.id] = f"settos_{lang}"
         await send(msg.chat.id, f"📝 Пришли текст соглашения для <b>{lang}</b> следующим сообщением:")
 
+@dp.message(Command("history"))
+async def cmd_history(msg: Message):
+    if not _cr(msg): return
+    p = (msg.text or "").split()
+    if len(p) >= 2:
+        tu = await _resolve_uid(p[1])
+        if not tu: await send(msg.chat.id, "❌ Пользователь не найден"); return
+        rows = await dba(
+            "SELECT p.item, p.stars, p.ts, u.name FROM purchases p "
+            "JOIN users u ON u.uid=p.uid WHERE p.uid=$1 ORDER BY p.ts DESC LIMIT 30", tu["uid"])
+        title = f"📋 <b>История транзакций {html.escape(tu['name'])}</b>"
+    else:
+        rows = await dba(
+            "SELECT p.item, p.stars, p.ts, u.name FROM purchases p "
+            "JOIN users u ON u.uid=p.uid ORDER BY p.ts DESC LIMIT 30")
+        title = "📋 <b>Последние 30 транзакций</b>"
+    if not rows:
+        await send(msg.chat.id, title + "\n\nПусто."); return
+    lines = [title, ""]
+    for r in rows:
+        lines.append(f"👤 <b>{html.escape(r['name'])}</b>  {r['item']}  {r['stars']}⭐  <i>{fmt_ts(r['ts'])}</i>")
+    await send(msg.chat.id, "\n".join(lines))
+
+@dp.message(Command("rich"))
+async def cmd_rich(msg: Message):
+    if not _cr(msg): return
+    rows = await dba(
+        "SELECT u.uid, u.name, u.bal, u.w_bj, u.l_bj, u.g_bj, u.joined, "
+        "COALESCE(SUM(p.stars),0) AS total_stars "
+        "FROM users u LEFT JOIN purchases p ON p.uid=u.uid "
+        "WHERE u.uid!=$1 GROUP BY u.uid ORDER BY u.bal DESC LIMIT 20", CREATOR_ID)
+    lines = ["💎 <b>Топ 20 богатейших игроков</b>\n"]
+    for i, r in enumerate(rows):
+        mn = await mention(r["uid"], r["name"])
+        source = []
+        if r["total_stars"] > 0:
+            source.append(f"🛍 {r['total_stars']}⭐ куплено")
+        if r["w_bj"] > 0:
+            source.append(f"🏆 {r['w_bj']} побед в игре")
+        src_str = "  ·  ".join(source) if source else "📊 игровые выигрыши"
+        lines.append(
+            f"<b>{i+1}.</b> {mn}\n"
+            f"   💰 {r['bal']:,}¢  ·  🎮 {r['g_bj']} игр\n"
+            f"   📌 {src_str}\n"
+            f"   📅 с {fmt_ts(r['joined'])}"
+        )
+    await send(msg.chat.id, "\n\n".join(lines))
+
 @dp.message(Command("broadcast"))
 async def cmd_broadcast(msg: Message):
     if not _cr(msg): return
@@ -2203,6 +2269,8 @@ async def cb_settings(c: CallbackQuery):
             await c.answer(t(lang,"pm_only"), show_alert=True)
     elif act == "help":
         await sedit(cid, c.message.message_id, t(lang,"help"), kb=back_kb(lang))
+    elif act == "vip":
+        await sedit(cid, c.message.message_id, t(lang,"vip_info"), kb=back_kb(lang))
     elif act == "report":
         if is_pm(cid):
             _user_state[uid] = "report"
