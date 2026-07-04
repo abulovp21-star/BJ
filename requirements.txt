@@ -1,2 +1,4 @@
+aiogram
 aiohttp
 asyncpg
+pyngrok
