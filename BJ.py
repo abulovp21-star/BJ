@@ -3100,7 +3100,10 @@ async def main():
     await init_db()
     log.info("Diamondting (aiogram3 + PostgreSQL)…")
     await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot, allowed_updates=["message","callback_query","pre_checkout_query"])
+    await dp.start_polling(
+    bot,
+    allowed_updates=["message", "callback_query", "pre_checkout_query", "inline_query", "chosen_inline_result"]
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
